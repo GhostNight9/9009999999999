@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>CONSOLE</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+
+  :root {
+    --red: #ff2020;
+    --red-dim: #8b0000;
+    --red-glow: #ff000066;
+    --bg: #050000;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: var(--bg);
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--red);
+    overflow: hidden;
+    touch-action: none;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: repeating-linear-gradient(
+      0deg, transparent, transparent 2px,
+      rgba(0,0,0,0.18) 2px, rgba(0,0,0,0.18) 4px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(180,0,0,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(180,0,0,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  #app {
+    position: relative;
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    z-index: 1;
+  }
+
+  #header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 18px 6px;
+    border-bottom: 1px solid var(--red-dim);
+    background: linear-gradient(180deg, #0d0000 0%, transparent 100%);
+    flex-shrink: 0;
+  }
+
+  #logo {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 900;
+    font-size: 15px;
+    letter-spacing: 5px;
+    color: var(--red);
+    text-shadow: 0 0 12px var(--red), 0 0 30px var(--red-glow);
+    animation: pulse-logo 3s ease-in-out infinite;
+  }
+  @keyframes pulse-logo {
+    0%,100% { text-shadow: 0 0 12px var(--red), 0 0 30px var(--red-glow); }
+    50% { text-shadow: 0 0 22px var(--red), 0 0 55px var(--red-glow), 0 0 90px var(--red-glow); }
+  }
+
+  #status-row { display: flex; gap: 14px; align-items: center; }
+
+  .status-pill {
+    font-size: 9px;
+    letter-spacing: 2px;
+    padding: 3px 8px;
+    border: 1px solid var(--red-dim);
+    border-radius: 2px;
+    color: var(--red);
+    background: rgba(139,0,0,0.12);
+  }
+  .status-pill.blink { animation: blink 1.2s step-end infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.15} }
+
+  #clock { font-size: 10px; color: #550000; letter-spacing: 2px; }
+
+  #terminal {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 12px 18px 8px;
+    display: flex;
+    flex-direction: column;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  #terminal::-webkit-scrollbar { display: none; }
+
+  .line {
+    font-size: 13px;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-all;
+    color: var(--red);
+    animation: line-appear 0.08s ease;
+  }
+  @keyframes line-appear { from { opacity:0; transform: translateX(-3px); } to { opacity:1; } }
+
+  .line.sys    { color: #660000; }
+  .line.ok     { color: #ff2020; text-shadow: 0 0 6px rgba(255,0,0,0.4); }
+  .line.done   { color: #aa1100; }
+  .line.cmd    { color: #ff5555; text-shadow: 0 0 4px rgba(255,50,50,0.5); }
+  .line.warn   { color: #ff4400; text-shadow: 0 0 10px #ff2200; }
+  .line.bright { color: #ff3333; text-shadow: 0 0 12px #ff0000, 0 0 24px rgba(255,0,0,0.4); font-weight: bold; }
+  .line.dim    { color: #330000; }
+
+  #cursor-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    font-size: 13px;
+  }
+  #prompt { color: #ff4444; text-shadow: 0 0 8px var(--red); }
+  #input-display {
+    flex: 1; min-width: 0;
+    word-break: break-all; white-space: pre-wrap;
+    color: #ff5555;
+    text-shadow: 0 0 4px rgba(255,50,50,0.5);
+  }
+  #cursor-block {
+    width: 9px; height: 16px;
+    background: var(--red);
+    display: inline-block;
+    animation: cursor-blink 0.8s step-end infinite;
+    box-shadow: 0 0 8px var(--red);
+    vertical-align: middle;
+  }
+  @keyframes cursor-blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  #tap-hint {
+    text-align: center;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: #330000;
+    padding: 4px;
+    flex-shrink: 0;
+    animation: fade-hint 4s ease 2s forwards;
+  }
+  @keyframes fade-hint { to { opacity: 0; } }
+
+  /* ── KEYBOARD ── */
+  #keyboard {
+    flex-shrink: 0;
+    background: linear-gradient(180deg, #0a0000 0%, #050000 100%);
+    border-top: 1px solid #2a0000;
+    padding: 8px 6px 14px;
+    user-select: none;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  #keyboard.visible { transform: translateY(0); }
+
+  .kb-row { display: flex; justify-content: center; gap: 5px; margin-bottom: 5px; }
+
+  .key {
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(180deg, #1a0000 0%, #0d0000 100%);
+    border: 1px solid #3a0000;
+    border-bottom: 2px solid #200000;
+    border-radius: 4px;
+    min-width: 32px; height: 40px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    color: var(--red);
+    cursor: pointer;
+    flex: 1; max-width: 42px;
+    transition: all 0.08s;
+    text-shadow: 0 0 6px var(--red);
+    box-shadow: inset 0 1px 0 rgba(255,0,0,0.08), 0 0 4px rgba(255,0,0,0.05);
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  .key.wide  { max-width: 72px;  flex: 2; font-size: 10px; letter-spacing: 1px; }
+  .key.xwide { max-width: 130px; flex: 4; }
+  .key.action {
+    background: linear-gradient(180deg, #2a0000 0%, #1a0000 100%);
+    border-color: #550000;
+    color: #ff3333;
+    text-shadow: 0 0 10px var(--red);
+    box-shadow: inset 0 1px 0 rgba(255,0,0,0.15), 0 0 8px rgba(255,0,0,0.1);
+  }
+  .key:active, .key.pressed {
+    background: linear-gradient(180deg, #3a0000 0%, #220000 100%);
+    border-color: var(--red);
+    box-shadow: 0 0 14px var(--red), inset 0 0 10px rgba(255,0,0,0.25);
+    transform: translateY(1px);
+    color: #ff8888;
+    text-shadow: 0 0 12px var(--red);
+  }
+  .key::before {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 4px; height: 4px;
+    border-top: 1px solid rgba(255,0,0,0.2);
+    border-left: 1px solid rgba(255,0,0,0.2);
+    pointer-events: none;
+  }
+
+  .corner {
+    position: fixed; width: 28px; height: 28px;
+    pointer-events: none; z-index: 500;
+  }
+  .corner::before, .corner::after { content: ''; position: absolute; background: var(--red); opacity: 0.6; }
+  .corner::before { width: 100%; height: 1px; }
+  .corner::after  { width: 1px;  height: 100%; }
+  .corner.tl { top:6px; left:6px; }
+  .corner.tl::before { top:0; left:0; }
+  .corner.tl::after  { top:0; left:0; }
+  .corner.tr { top:6px; right:6px; }
+  .corner.tr::before { top:0; right:0; left:auto; }
+  .corner.tr::after  { top:0; right:0; left:auto; }
+  .corner.bl { bottom:6px; left:6px; }
+  .corner.bl::before { bottom:0; top:auto; left:0; }
+  .corner.bl::after  { bottom:0; top:auto; left:0; }
+  .corner.br { bottom:6px; right:6px; }
+  .corner.br::before { bottom:0; top:auto; right:0; left:auto; }
+  .corner.br::after  { bottom:0; top:auto; right:0; left:auto; }
+  .key.sym { color: #ff6666; letter-spacing: 1px; font-size: 12px; text-shadow: 0 0 8px var(--red); }
+</style>
+</head>
+<body>
+
+<div class="corner tl"></div>
+<div class="corner tr"></div>
+<div class="corner bl"></div>
+<div class="corner br"></div>
+
+<div id="app">
+  <div id="header">
+    <div id="logo">CONSOLE</div>
+    <div id="status-row">
+      <div class="status-pill blink">ACTIVE</div>
+      <div class="status-pill">SECURE</div>
+      <div id="clock">--:--:--</div>
+    </div>
+  </div>
+
+  <div id="terminal">
+    <div id="cursor-line">
+      <span id="prompt">&gt;&gt;&gt;</span>
+      <span id="input-display"></span><span id="cursor-block"></span>
+    </div>
+  </div>
+
+  <div id="tap-hint">[ TAP SCREEN TO OPEN KEYBOARD ]</div>
+
+  <div id="keyboard">
+    <div class="kb-row" id="row0"></div>
+    <div class="kb-row" id="row1"></div>
+    <div class="kb-row" id="row2"></div>
+    <div class="kb-row" id="row3"></div>
+    <div class="kb-row" id="row4"></div>
+  </div>
+</div>
+
+<script>
+// ── FULLSCREEN ──
+function requestFS() {
+  const el = document.documentElement;
+  const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+  if (fn) fn.call(el).catch(() => {});
+}
+// Try on page load — works on desktop
+window.addEventListener('load', () => requestFS());
+// On iOS/iPadOS Safari we need a user gesture; use pointerdown only (NOT keydown)
+// so we never swallow a typed character trying to go fullscreen
+document.addEventListener('pointerdown', () => requestFS(), { once: true });
+
+function updateClock() {
+  const n = new Date(), pad = x => String(x).padStart(2,'0');
+  document.getElementById('clock').textContent =
+    `${pad(n.getHours())}:${pad(n.getMinutes())}:${pad(n.getSeconds())}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+const terminal = document.getElementById('terminal');
+const cursorLine = document.getElementById('cursor-line');
+const inputDisplay = document.getElementById('input-display');
+let inputBuffer = '';
+
+function addLine(text, cls='ok') {
+  const div = document.createElement('div');
+  div.className = 'line ' + cls;
+  div.textContent = text;
+  terminal.insertBefore(div, cursorLine);
+  terminal.scrollTop = terminal.scrollHeight;
+}
+
+const bootLines = [
+  ['[*] STEALTH TERMINAL v4.7.1', 'bright'],
+  ['[*] initializing secure enclave..........done', 'sys'],
+  ['[+] mapping target regions...............done', 'ok'],
+  ['[+] setting register state...............done', 'ok'],
+  ['[+] remapping bridge layer...............done', 'ok'],
+  ['[+] establishing tunnel..................done', 'ok'],
+  ['  HOST_PROXY: ready', 'bright'],
+  ['  BREACH_MODULE: ready', 'bright'],
+  ['', 'dim'],
+  [">>> k_rw=open('payloads/escalate/bounds')", 'cmd'],
+  ['>>> session.proxy()', 'cmd'],
+  ['>>> session.escalate(k_rw)', 'cmd'],
+  ['', 'dim'],
+  ['Received 62 packets, got 31 answers,', 'ok'],
+  ['Finished sending 31 packets...', 'ok'],
+  ['', 'dim'],
+  ['Begin emission', 'warn'],
+  ['Host resolved: 192.168.0.12', 'ok'],
+  ['', 'dim'],
+];
+
+let bootIndex = 0;
+function bootNext() {
+  if (bootIndex < bootLines.length) {
+    addLine(...bootLines[bootIndex++]);
+    setTimeout(bootNext, 60 + Math.random() * 80);
+  }
+}
+setTimeout(bootNext, 400);
+
+const responses = {
+  'help': [
+    ['  available commands:', 'bright'],
+    ['  scan      - scan network nodes', 'ok'],
+    ['  breach    - initiate breach sequence', 'ok'],
+    ['  escalate  - privilege escalation', 'ok'],
+    ['  proxy     - route through stealth proxy', 'ok'],
+    ['  status    - system status', 'ok'],
+    ['  trace     - run trace route', 'ok'],
+    ['  clear     - clear terminal', 'dim'],
+  ],
+  'scan': [
+    ['[*] scanning subnet 192.168.0.0/24...', 'sys'],
+    ['[+] host: 192.168.0.1    GATEWAY      open', 'ok'],
+    ['[+] host: 192.168.0.12   TARGET       open', 'warn'],
+    ['[+] host: 192.168.0.44   RELAY        filtered', 'done'],
+    ['[+] host: 192.168.0.99   MONITOR      closed', 'sys'],
+    ['[+] scan complete. 4 hosts detected.', 'bright'],
+  ],
+  'breach': [
+    ['[*] initiating breach sequence...', 'sys'],
+    ['[+] spoofing identity layer..............done', 'ok'],
+    ['[+] injecting stealth payload............done', 'ok'],
+    ['[+] bypassing relay......................done', 'ok'],
+    ['[+] establishing covert channel..........done', 'ok'],
+    ['  !! BREACH SUCCESSFUL !!', 'bright'],
+  ],
+  'escalate': [
+    ['[*] escalating privileges...', 'sys'],
+    ['>>> session.escalate(k_rw)', 'cmd'],
+    ['[+] kernel exploit loaded................done', 'ok'],
+    ['[+] root access granted..................done', 'bright'],
+    ['  PRIVILEGE LEVEL: ROOT', 'warn'],
+  ],
+  'proxy': [
+    ['[*] routing through stealth proxy...', 'sys'],
+    ['[+] HOST_PROXY: active', 'ok'],
+    ['[+] traffic tunneled via bridge..........done', 'ok'],
+    ['[+] identity masked......................done', 'ok'],
+    ['  ORIGIN: CONCEALED', 'bright'],
+  ],
+  'status': [
+    ['  [ SYSTEM STATUS ]', 'bright'],
+    ['  proxy      : ACTIVE', 'ok'],
+    ['  breach     : IN PROGRESS', 'warn'],
+    ['  kernel     : ELEVATED', 'ok'],
+    ['  relay      : BYPASSED', 'done'],
+    ['  identity   : MASKED', 'ok'],
+    ['  uptime     : 04:22:17', 'sys'],
+  ],
+  'trace': [
+    ['[*] tracing route to 192.168.0.12...', 'sys'],
+    ['  1  10.0.0.1         2ms', 'ok'],
+    ['  2  172.16.0.1       5ms', 'ok'],
+    ['  3  192.168.0.1      8ms', 'ok'],
+    ['  4  192.168.0.12    11ms', 'warn'],
+    ['[+] trace complete. 4 hops.', 'bright'],
+  ],
+};
+
+// ── TYPEWRITER ──
+// Adds a line to terminal and types it out character by character.
+// Returns a promise that resolves when done.
+function typewriterLine(text, cls='ok', speed=28) {
+  return new Promise(resolve => {
+    const div = document.createElement('div');
+    div.className = 'line ' + cls;
+    div.textContent = '';
+    terminal.insertBefore(div, cursorLine);
+    terminal.scrollTop = terminal.scrollHeight;
+    let i = 0;
+    function tick() {
+      if (i < text.length) {
+        div.textContent += text[i++];
+        terminal.scrollTop = terminal.scrollHeight;
+        playClick('key');
+        setTimeout(tick, speed + Math.random() * speed * 0.6);
+      } else {
+        resolve();
+      }
+    }
+    tick();
+  });
+}
+
+// Runs an array of [text, cls, speed?] with typewriter, sequentially.
+// delay = ms pause before each line starts typing.
+async function typewriterSequence(lines, lineDelay=120) {
+  for (const [text, cls, speed] of lines) {
+    await new Promise(r => setTimeout(r, lineDelay + Math.random() * 80));
+    await typewriterLine(text, cls, speed ?? 22);
+  }
+}
+
+// ── CUSTOM COMMANDS (exact match, raw input before toLowerCase) ──
+const customCommands = {
+  'scan//user.prog.network(1029283)': async () => {
+    const seq = [
+      ['[*] invoking scan//user.prog.network(1029283)...', 'sys', 7],
+      ['[+] resolving network node: 1029283...', 'ok', 5],
+      ['[+] binding socket layer.........................done', 'ok', 5],
+      ['[+] initializing stealth handshake...............done', 'ok', 5],
+      ['[*] probing user.prog broadcast channels...', 'sys', 7],
+      ['    >> channel 0x4A: open   [bandwidth: 94.2 Mbps]', 'ok', 4],
+      ['    >> channel 0x4B: open   [bandwidth: 61.7 Mbps]', 'ok', 4],
+      ['    >> channel 0x4C: filtered', 'done', 4],
+      ['    >> channel 0x4D: open   [bandwidth: 38.9 Mbps]', 'ok', 4],
+      ['    >> channel 0x4E: open   [bandwidth: 77.1 Mbps]', 'ok', 4],
+      ['    >> channel 0x4F: open   [bandwidth: 120.0 Mbps]', 'warn', 4],
+      ['[*] fingerprinting OS on node 1029283...', 'sys', 7],
+      ['    >> TTL: 64   OS guess: Linux 4.x / 5.x', 'ok', 4],
+      ['    >> open ports: 22, 80, 443, 8080, 9001', 'ok', 4],
+      ['    >> service: ssh, http, https, proxy, relay', 'ok', 4],
+      ['[+] enumerating user identifiers on node 1029283...', 'sys', 6],
+      ['    uid:0x00291  handle: ghost_relay_alpha       [inactive]', 'done', 4],
+      ['    uid:0x00334  handle: null.daemon.004         [inactive]', 'done', 4],
+      ['    uid:0x00445  handle: daemon.net.bridge       [standby]', 'ok', 4],
+      ['    uid:0x00612  handle: shadow.proc.x           [standby]', 'ok', 4],
+      ['    uid:0x00891  handle: user.prog               [ACTIVE]', 'warn', 4],
+      ['    uid:0x01102  handle: monitor.svc.silent      [active]', 'ok', 4],
+      ['    uid:0x01337  handle: root.relay.bridge       [active]', 'warn', 4],
+      ['[*] locking onto uid:0x00891 user.prog...', 'sys', 7],
+      ['[+] shadow sync established..................done', 'ok', 5],
+      ['[*] intercepting broadcast stream from uid:0x00891...', 'sys', 6],
+      ['    packet 001/062  >>  SYN  0xf3a2  OK', 'ok', 4],
+      ['    packet 002/062  >>  ACK  0x91cc  OK', 'ok', 4],
+      ['    packet 003/062  >>  ACK  0xb7d1  OK', 'ok', 4],
+      ['    packet 004/062  >>  ACK  0x0042  OK', 'ok', 4],
+      ['    packet 005/062  >>  ACK  0xff10  OK', 'ok', 4],
+      ['    packet 006/062  >>  ACK  0x3391  OK', 'ok', 4],
+      ['    packet 007/062  >>  ACK  0xaa01  OK', 'ok', 4],
+      ['    packet 008/062  >>  ACK  0x55de  OK', 'ok', 4],
+      ['    packet 009/062  >>  ACK  0x12bc  OK', 'ok', 4],
+      ['    packet 010/062  >>  ACK  0xc309  OK', 'ok', 4],
+      ['    ...', 'sys', 12],
+      ['    packet 062/062  >>  FIN  0xa9e3  OK', 'ok', 4],
+      ['[+] 62/62 packets captured. 0 dropped.', 'ok', 5],
+      ['[*] reassembling payload stream...', 'sys', 7],
+      ['    >> segment 1/4: OK  [checksum: 0xf1a2]', 'ok', 4],
+      ['    >> segment 2/4: OK  [checksum: 0x33bc]', 'ok', 4],
+      ['    >> segment 3/4: OK  [checksum: 0x99ef]', 'ok', 4],
+      ['    >> segment 4/4: OK  [checksum: 0x0041]', 'ok', 4],
+      ['[+] stream reassembly: complete', 'ok', 5],
+      ['[*] decrypting payload buffer...', 'sys', 7],
+      ['    >> cipher detected: AES-256-GCM', 'ok', 4],
+      ['    >> brute-forcing key space... [000000 - ffffff]', 'sys', 4],
+      ['    >> key candidate: 9f3a-cc12-00b7-e441  [match]', 'warn', 4],
+      ['    >> integrity check: PASSED', 'ok', 4],
+      ['[+] payload decrypted. extracting identity metadata...', 'sys', 6],
+      ['', 'dim', 1],
+      ['    uid_hash     : 0x9fe21a0041bc3309', 'ok', 4],
+      ['    origin_ip    : 192.168.1.99', 'ok', 4],
+      ['    mac_addr     : a4:c3:f0:12:99:de', 'ok', 4],
+      ['    session_key  : 7f2c-11da-bc09-4401', 'ok', 4],
+      ['    broadcast_id : 1029283', 'warn', 4],
+      ['    node_tag     : user.prog.network', 'warn', 4],
+      ['    status       : TRANSMITTING', 'warn', 4],
+      ['    ping_latency : 4ms', 'ok', 4],
+      ['    signal_str   : -42 dBm  [strong]', 'ok', 4],
+      ['    last_seen    : 0.000s ago', 'ok', 4],
+      ['', 'dim', 1],
+      ['[*] cross-referencing identity registry...', 'sys', 7],
+      ['    >> match found in registry: slot 0x0099', 'warn', 4],
+      ['    >> alias records: 3 found', 'ok', 4],
+      ['    >> linked nodes: 1029283, 0x4401, 0xbc09', 'ok', 4],
+      ['[+] identity lock confirmed. compiling report...', 'ok', 5],
+      ['[*] finalizing scan output...', 'sys', 7],
+      ['', 'dim', 1],
+      ['user//detected.broadcast.info?id:99', 'bright', 10],
+      ['user: Liam,tag<<id:Lyzun??//userid#:99', 'bright', 10],
+    ];
+    await typewriterSequence(seq, 25);
+  },
+
+  '//import.virus9//userbit.tagplayer': async () => {
+    // Phase 1 — fast data dump, no delay between lines (instant add)
+    const fastDump = [
+      '[*] //import.virus9//userbit.tagplayer — INITIALIZING',
+      '[*] locating virus9 payload in remote registry...',
+      '[+] registry endpoint: reg.shadow.net:9900...........reached',
+      '[+] payload manifest found: virus9.v3.1.core.tar.xz',
+      '[+] manifest hash: sha256:9f3ac0012be44f10029aef3309cc12aa',
+      '[*] pulling payload segments from 6 mirror nodes...',
+      '    mirror[0] reg.shadow.net:9900      >> 200 OK  14.2 MB',
+      '    mirror[1] null.relay.io:4431       >> 200 OK  14.2 MB',
+      '    mirror[2] ghost.bridge.onion:8080  >> 200 OK  14.2 MB',
+      '    mirror[3] proxy.dark.cc:443        >> 200 OK  14.2 MB',
+      '    mirror[4] anon.node.net:22         >> 200 OK  14.2 MB',
+      '    mirror[5] stealth.host.sv:9001     >> 200 OK  14.2 MB',
+      '[+] all mirrors confirmed. assembling payload...',
+      '[*] verifying segment integrity...',
+      '    seg[00] :: 0xf3a291cc :: PASS',
+      '    seg[01] :: 0xb7d10042 :: PASS',
+      '    seg[02] :: 0xff103391 :: PASS',
+      '    seg[03] :: 0xaa0155de :: PASS',
+      '    seg[04] :: 0x12bcc309 :: PASS',
+      '    seg[05] :: 0x9fe21a00 :: PASS',
+      '    seg[06] :: 0x41bc3309 :: PASS',
+      '    seg[07] :: 0x7f2c11da :: PASS',
+      '    seg[08] :: 0xbc094401 :: PASS',
+      '    seg[09] :: 0x0099de12 :: PASS',
+      '[+] 10/10 segments verified. integrity: 100%',
+      '[*] unpacking virus9 core modules...',
+      '    >> module: v9.kernel.inject         [unpacked]',
+      '    >> module: v9.mem.overflow          [unpacked]',
+      '    >> module: v9.proc.hijack           [unpacked]',
+      '    >> module: v9.net.ghost             [unpacked]',
+      '    >> module: v9.auth.bypass           [unpacked]',
+      '    >> module: v9.crypt.layer           [unpacked]',
+      '    >> module: v9.signal.mask           [unpacked]',
+      '    >> module: v9.rootkit.embed         [unpacked]',
+      '    >> module: v9.tag.player            [unpacked]',
+      '    >> module: v9.broadcast.hook        [unpacked]',
+      '[*] binding virus9 to userbit.tagplayer process...',
+      '    >> scanning active processes...',
+      '    >> pid:0441  userbit.tagplayer       [FOUND]',
+      '    >> attaching to pid:0441....................done',
+      '    >> injecting v9.kernel.inject into pid:0441',
+      '    >> memory map override: 0x7ffe00 - 0x7fff00....done',
+      '    >> patching return address table............done',
+      '    >> installing v9.proc.hijack hook..........done',
+      '[*] escalating inside tagplayer process...',
+      '    >> stack smash at offset +0x00d4..........done',
+      '    >> shellcode deployed: 48 bytes at 0x7ffe22',
+      '    >> execution redirected.....................done',
+      '    >> v9 shell active inside pid:0441',
+      '[*] deploying network ghost layer...',
+      '    >> v9.net.ghost binding to eth0............done',
+      '    >> v9.net.ghost binding to lo..............done',
+      '    >> traffic mirror: ON',
+      '    >> packet filter: STEALTH',
+      '    >> outbound mask: ACTIVE',
+      '[*] hooking broadcast stream...',
+      '    >> v9.broadcast.hook intercepting port 9900',
+      '    >> stream reroute: local:9901..............done',
+      '    >> broadcast clone: ACTIVE',
+      '[*] embedding rootkit...',
+      '    >> v9.rootkit.embed writing to /sys/kern/mod',
+      '    >> persistence hook: /etc/rc.d/v9.init.....done',
+      '    >> process masquerade: kworker/0:0H',
+      '    >> hidden from ps, top, lsof...............done',
+      '[*] activating tag.player injection...',
+      '    >> parsing tagplayer session tokens...',
+      '    >> token[0]: 9f3a-cc12-00b7-e441  [captured]',
+      '    >> token[1]: 7f2c-11da-bc09-4401  [captured]',
+      '    >> token[2]: 0099-de12-ff10-3391  [captured]',
+      '    >> forging session context for id#:99......done',
+      '    >> tag player uid:99 assumed identity......done',
+      '[*] running v9.crypt.layer...',
+      '    >> encrypting v9 comms: AES-256-CTR',
+      '    >> key exchange: ECDH P-384',
+      '    >> forward secrecy: ON',
+      '    >> channel sealed.........................done',
+      '[*] running final system check...',
+      '    >> kernel hook:        ACTIVE',
+      '    >> mem patch:          ACTIVE',
+      '    >> proc hijack:        ACTIVE',
+      '    >> net ghost:          ACTIVE',
+      '    >> broadcast hook:     ACTIVE',
+      '    >> rootkit:            EMBEDDED',
+      '    >> crypt layer:        SEALED',
+      '    >> tag player:         OWNED',
+      '    >> stealth index:      0.000 [undetectable]',
+      '[*] computing activation hash for id#:99...',
+      '    >> input: virus9.v3.1 + uid:99 + session_tokens',
+      '    >> sha512: a3f9cc12009fe2410041bc33097f2c11',
+      '    >>         dabc09440100de12ff103391aa0155de',
+      '    >> hash confirmed. signing with v9 private key.',
+      '    >> signature: VALID',
+      '',
+    ];
+
+    // dump first block instantly
+    for (const text of fastDump) {
+      addLine(text, text.startsWith('[*]') ? 'sys' : text.startsWith('[+]') ? 'ok' : text.includes('ACTIVE') || text.includes('OWNED') || text.includes('EMBEDDED') ? 'warn' : text === '' ? 'dim' : 'ok');
+      await new Promise(r => setTimeout(r, 18));
+    }
+
+    // Phase 2 — dramatic typewriter finish
+    await new Promise(r => setTimeout(r, 180));
+    await typewriterLine('Successfully:imported//virus9;activate.hash(99)', 'bright', 9);
+    virus9Unlocked = true;
+  },
+};
+
+// State flag — [99] only works after virus9 import
+let virus9Unlocked = false;
+
+// [99] activation sequence — floods screen for ~6 seconds then types final line
+async function runActivation99() {
+  const startTime = Date.now();
+  const targetDuration = 5600; // ms of fast flood before final line
+
+  // Giant pool of lines to randomly draw from — keeps it chaotic
+  const pool = [
+    // kernel / memory
+    '[V9] kernel hook: firing...................................ok',
+    '[V9] mem.overflow: writing shellcode at 0x7ffe22......done',
+    '[V9] stack frame corrupted: pid:0441  offset:+0x00d4',
+    '[V9] return addr patched: 0x7ffe22 -> 0x400a91',
+    '[V9] heap spray: 4096 blocks @ 0x7ff000................done',
+    '[V9] NX bypass: ROP chain assembled (12 gadgets)',
+    '[V9] ASLR defeated: base leak @ 0x55a3f0012000',
+    '[V9] code cave found: .text+0x3f20 (64 bytes free)',
+    '[V9] payload written to cave............................done',
+    '[V9] exec permission set: mprotect(RWX)................done',
+    // network flood
+    '[V9] net.ghost: flooding eth0 with 1024 ghost packets',
+    '[V9] net.ghost: spoofed src  192.168.9.1 -> 10.0.0.1',
+    '[V9] net.ghost: spoofed src  192.168.9.2 -> 10.0.0.2',
+    '[V9] net.ghost: spoofed src  192.168.9.3 -> 10.0.0.3',
+    '[V9] net.ghost: ARP cache poisoned: 00:00:00:00:00:00',
+    '[V9] broadcast.hook: cloning stream port 9900->9901',
+    '[V9] broadcast.hook: injecting forged frames (x128)',
+    '[V9] broadcast.hook: frame 0x0001 injected..........ok',
+    '[V9] broadcast.hook: frame 0x0002 injected..........ok',
+    '[V9] broadcast.hook: frame 0x0041 injected..........ok',
+    '[V9] broadcast.hook: frame 0x0099 injected..........ok',
+    '[V9] signal.mask: jamming monitor on 192.168.0.99',
+    '[V9] signal.mask: null route installed.................done',
+    // process / rootkit
+    '[V9] proc.hijack: pid:0441 context switched',
+    '[V9] proc.hijack: syscall table hooked @ 0xffffffff81801460',
+    '[V9] rootkit: hiding PID 0441 from /proc',
+    '[V9] rootkit: masquerading as kworker/0:0H',
+    '[V9] rootkit: /sys/kern/mod entry written..............done',
+    '[V9] rootkit: persistence hook /etc/rc.d/v9.init......done',
+    '[V9] rootkit: lsof blind...............................done',
+    '[V9] rootkit: ps blind.................................done',
+    '[V9] rootkit: netstat blind............................done',
+    // auth / session
+    '[V9] auth.bypass: session token 9f3a-cc12 forged......ok',
+    '[V9] auth.bypass: session token 7f2c-11da forged......ok',
+    '[V9] auth.bypass: session token 0099-de12 forged......ok',
+    '[V9] auth.bypass: uid:99 assumed.......................done',
+    '[V9] auth.bypass: privilege token written to cookie jar',
+    '[V9] auth.bypass: CSRF token spoofed..................done',
+    '[V9] tag.player: identity injected for uid:99',
+    '[V9] tag.player: session context live..................done',
+    '[V9] tag.player: broadcast alias: Lyzun [ACTIVE]',
+    // crypto
+    '[V9] crypt.layer: encrypting comms AES-256-CTR........done',
+    '[V9] crypt.layer: ECDH P-384 key exchange.............done',
+    '[V9] crypt.layer: forward secrecy confirmed',
+    '[V9] crypt.layer: channel sealed.......................done',
+    '[V9] crypt.layer: rekeying... new session key gen',
+    '[V9] crypt.layer: 0xf3a291cc9fe21a0041bc33097f2c11da',
+    // hash / signature spam
+    '    >> sha256: 9f3ac0012be44f10029aef3309cc12aa',
+    '    >> sha512: a3f9cc12009fe2410041bc33097f2c11',
+    '    >>         dabc09440100de12ff103391aa0155de',
+    '    >> sig: VALID  ts:' + Date.now(),
+    '    >> block 0x0041: hash match',
+    '    >> block 0x0099: hash match',
+    '    >> block 0xff10: hash match',
+    '    >> block 0x3391: hash match',
+    '    >> block 0xaa01: hash match',
+    // system status lines
+    '[V9] KERNEL_HOOK      ████████████ 100%',
+    '[V9] MEM_PATCH        ████████████ 100%',
+    '[V9] PROC_HIJACK      ████████████ 100%',
+    '[V9] NET_GHOST        ████████████ 100%',
+    '[V9] BROADCAST_HOOK   ████████████ 100%',
+    '[V9] ROOTKIT          ████████████ EMBEDDED',
+    '[V9] CRYPT_LAYER      ████████████ SEALED',
+    '[V9] TAG_PLAYER       ████████████ OWNED',
+    '[V9] STEALTH_INDEX    ████████████ 0.000',
+    // raw hex bursts
+    '    0xf3a2 0x91cc 0xb7d1 0x0042 0xff10 0x3391 0xaa01',
+    '    0x55de 0x12bc 0xc309 0x9fe2 0x1a00 0x41bc 0x3309',
+    '    0x7f2c 0x11da 0xbc09 0x4401 0x0099 0xde12 0xff10',
+    '    0xa3f9 0xcc12 0x009f 0xe241 0x0041 0xbc33 0x097f',
+    // chaos / final push
+    '[V9] injection vector confirmed: ROP+shellcode+heap',
+    '[V9] all hooks live. system compromised.',
+    '[V9] monitoring suppressed across all vectors',
+    '[V9] v9 fully resident in target process pid:0441',
+    '[V9] uid:99 session token broadcast live',
+    '[V9] activation sequence running...',
+    '[V9] hash(99) computing final signature...',
+    '[V9] final block write: 0x99 -> tagplayer.session',
+  ];
+
+  let i = 0;
+  // Flood loop — keep adding lines until 5.6s elapsed
+  while (Date.now() - startTime < targetDuration) {
+    const line = pool[i % pool.length];
+    i++;
+    // Determine class
+    let cls = 'ok';
+    if (line.startsWith('[V9] KERNEL') || line.startsWith('[V9] MEM') || line.startsWith('[V9] PROC') ||
+        line.startsWith('[V9] NET') || line.startsWith('[V9] BROAD') || line.startsWith('[V9] ROOT') ||
+        line.startsWith('[V9] CRYPT') || line.startsWith('[V9] TAG') || line.startsWith('[V9] STEALTH')) {
+      cls = 'warn';
+    } else if (line.startsWith('    0x') || line.startsWith('    >> sha') || line.startsWith('    >> sig') || line.startsWith('    >> block')) {
+      cls = 'done';
+    } else if (line.startsWith('[V9] kernel') || line.startsWith('[V9] mem') || line.startsWith('[V9] stack') ||
+               line.startsWith('[V9] heap') || line.startsWith('[V9] NX') || line.startsWith('[V9] ASLR') ||
+               line.startsWith('[V9] code')) {
+      cls = 'sys';
+    }
+    addLine(line, cls);
+    await new Promise(r => setTimeout(r, 55));
+  }
+
+  // Brief dramatic pause, then type out the final line slowly
+  addLine('', 'dim');
+  await new Promise(r => setTimeout(r, 300));
+  await typewriterLine('Virus.9//activated.on//usertagplayer;92]', 'bright', 18);
+  virus9Unlocked = false; // reset after use
+}
+
+function handleCommand(cmd) {
+  const raw = cmd.trim();
+  const lower = raw.toLowerCase();
+
+  addLine('>>> ' + raw, 'cmd');
+
+  if (lower === 'clear') { terminal.querySelectorAll('.line').forEach(l => l.remove()); return; }
+
+  // [99] only available after virus9 import
+  if (lower === '[99]') {
+    if (virus9Unlocked) {
+      runActivation99();
+    } else {
+      addLine('[!] error: no active virus9 session. run //import.virus9//userbit.tagplayer first.', 'warn');
+    }
+    return;
+  }
+
+  // Check custom commands (case-insensitive key match)
+  const customKey = Object.keys(customCommands).find(k => k === lower);
+  if (customKey) {
+    customCommands[customKey]();
+    return;
+  }
+
+  const resp = responses[lower];
+  if (resp) resp.forEach(([t, c]) => addLine(t, c));
+  else if (lower !== '') {
+    if (looksLikeCommand(lower)) {
+      generateWildcardResponse(lower);
+    } else {
+      addLine(`[!] unknown command: "${raw}"  (type help)`, 'warn');
+    }
+  }
+  terminal.scrollTop = terminal.scrollHeight;
+}
+
+// ── TYPING SOUNDS (Web Audio API — no files needed) ──
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function playClick(type = 'key') {
+  // Resume context if suspended (browser autoplay policy)
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+
+  const now = audioCtx.currentTime;
+
+  if (type === 'key') {
+    // Sharp mechanical click — short noise burst + high-freq tick
+    const bufSize = audioCtx.sampleRate * 0.04;
+    const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) {
+      // White noise that decays very quickly
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufSize, 8);
+    }
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buf;
+
+    // Band-pass filter to give it that crisp clicky character
+    const bpf = audioCtx.createBiquadFilter();
+    bpf.type = 'bandpass';
+    bpf.frequency.value = 3800 + Math.random() * 600;
+    bpf.Q.value = 1.2;
+
+    // Thin high shelf for brightness
+    const shelf = audioCtx.createBiquadFilter();
+    shelf.type = 'highshelf';
+    shelf.frequency.value = 6000;
+    shelf.gain.value = 6;
+
+    const gainNode = audioCtx.createGain();
+    gainNode.gain.setValueAtTime(0.28, now);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.038);
+
+    noise.connect(bpf);
+    bpf.connect(shelf);
+    shelf.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    noise.start(now);
+    noise.stop(now + 0.04);
+
+  } else if (type === 'backspace') {
+    // Slightly lower, softer thud
+    const bufSize = audioCtx.sampleRate * 0.035;
+    const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufSize, 10);
+    }
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buf;
+
+    const bpf = audioCtx.createBiquadFilter();
+    bpf.type = 'bandpass';
+    bpf.frequency.value = 1800;
+    bpf.Q.value = 1.8;
+
+    const gainNode = audioCtx.createGain();
+    gainNode.gain.setValueAtTime(0.18, now);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+
+    noise.connect(bpf);
+    bpf.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    noise.start(now);
+    noise.stop(now + 0.035);
+
+  } else if (type === 'enter') {
+    // Deeper, heavier thud with a subtle low-freq body
+    const bufSize = audioCtx.sampleRate * 0.06;
+    const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < bufSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufSize, 6);
+    }
+    const noise = audioCtx.createBufferSource();
+    noise.buffer = buf;
+
+    const bpf = audioCtx.createBiquadFilter();
+    bpf.type = 'bandpass';
+    bpf.frequency.value = 900;
+    bpf.Q.value = 0.9;
+
+    const hpf = audioCtx.createBiquadFilter();
+    hpf.type = 'highpass';
+    hpf.frequency.value = 300;
+
+    const gainNode = audioCtx.createGain();
+    gainNode.gain.setValueAtTime(0.35, now);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.055);
+
+    noise.connect(bpf);
+    bpf.connect(hpf);
+    hpf.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    noise.start(now);
+    noise.stop(now + 0.06);
+  }
+}
+
+function updateDisplay() { inputDisplay.textContent = inputBuffer; }
+function keyPress(char) { inputBuffer += char; updateDisplay(); playClick('key'); }
+function backspace() { inputBuffer = inputBuffer.slice(0, -1); updateDisplay(); playClick('backspace'); }
+function enter() { handleCommand(inputBuffer); inputBuffer = ''; updateDisplay(); playClick('enter'); }
+
+const rows = [
+  ['1','2','3','4','5','6','7','8','9','0','(',')'],
+  ['Q','W','E','R','T','Y','U','I','O','P','[',']'],
+  ['A','S','D','F','G','H','J','K','L','#',':'],
+  ['Z','X','C','V','B','N','M','.','/','?'],
+  [['BKSP','wide action'], [['//','sym'],'wide'], [' ','xwide'], ['ENTER','wide action']],
+];
+
+rows.forEach((row, ri) => {
+  const rowEl = document.getElementById('row' + ri);
+  row.forEach(k => {
+    const btn = document.createElement('div');
+    btn.className = 'key';
+    let label, extraClass = '';
+
+    if (Array.isArray(k)) {
+      // Could be ['BKSP','wide action'] or [['//','sym'],'wide']
+      if (Array.isArray(k[0])) {
+        // special: [[label, extraForLabel], wideClass]
+        label = k[0][0];
+        extraClass = k[1] + ' ' + k[0][1];
+      } else {
+        label = k[0];
+        extraClass = k[1];
+      }
+      btn.classList.add(...extraClass.trim().split(/\s+/));
+    } else {
+      label = k;
+    }
+
+    btn.textContent = label;
+    if (label === 'BKSP')       btn.addEventListener('pointerdown', e => { e.preventDefault(); flashKey(btn); backspace(); });
+    else if (label === 'ENTER') btn.addEventListener('pointerdown', e => { e.preventDefault(); flashKey(btn); enter(); });
+    else if (label === ' ')     btn.addEventListener('pointerdown', e => { e.preventDefault(); flashKey(btn); keyPress(' '); });
+    else btn.addEventListener('pointerdown', e => { e.preventDefault(); flashKey(btn); keyPress(label); });
+    rowEl.appendChild(btn);
+  });
+});
+
+function flashKey(btn) { btn.classList.add('pressed'); setTimeout(() => btn.classList.remove('pressed'), 120); }
+
+const keyboard = document.getElementById('keyboard');
+const tapHint = document.getElementById('tap-hint');
+
+// Detect whether a hardware keyboard is connected/in use.
+// We start optimistic (assume no hardware keyboard = show on-screen KB on tap).
+// The moment ANY physical keydown fires, we know a hardware keyboard is present
+// and permanently hide the on-screen keyboard for this session.
+let hardwareKeyboard = false;
+
+function enableHardwareMode() {
+  if (hardwareKeyboard) return;
+  hardwareKeyboard = true;
+  // Hide on-screen keyboard and tap hint permanently
+  keyboard.style.display = 'none';
+  tapHint.style.display = 'none';
+}
+
+// iPad with Smart Keyboard / Magic Keyboard fires real keydown events
+document.addEventListener('keydown', (e) => {
+  // Ignore modifier-only keys
+  if (['Meta','Control','Alt','Shift','CapsLock','Tab','Escape'].includes(e.key)) return;
+  enableHardwareMode();
+  if (e.key === 'Backspace') { e.preventDefault(); backspace(); }
+  else if (e.key === 'Enter') { e.preventDefault(); enter(); }
+  else if (e.key.length === 1) { keyPress(e.key); }
+});
+
+// Touch-only users: show on-screen keyboard when they tap the terminal
+terminal.addEventListener('pointerdown', (e) => {
+  if (hardwareKeyboard) return;
+  // Only show if it was a touch/pen (not a mouse click from hardware-keyboard iPad)
+  if (e.pointerType === 'touch') {
+    keyboard.classList.add('visible');
+    tapHint.style.display = 'none';
+  }
+});
+
+// Tap outside hides on-screen keyboard (touch-only path)
+document.addEventListener('pointerdown', (e) => {
+  if (hardwareKeyboard) return;
+  if (!keyboard.contains(e.target) && !terminal.contains(e.target)) {
+    keyboard.classList.remove('visible');
+  }
+});
+
+const ambientLines = [
+  ['[*] packet intercept: 192.168.0.12', 'sys'],
+  ['[+] heartbeat: nominal', 'sys'],
+  ['[!] anomaly at node 44...masked', 'done'],
+  ['[*] re-routing via bridge delta...', 'sys'],
+  ['[+] stealth layer refreshed', 'ok'],
+  ['[*] monitor ping suppressed', 'sys'],
+  ['[+] checksum verified: 0xf4a2', 'sys'],
+  ['[*] payload integrity: ok', 'sys'],
+];
+
+function spawnAmbient() {
+  if (Math.random() > 0.4) addLine(...ambientLines[Math.floor(Math.random() * ambientLines.length)]);
+  setTimeout(spawnAmbient, 4000 + Math.random() * 6000);
+}
+setTimeout(spawnAmbient, 8000);
+
+// ── WILDCARD HACKING RESPONSE ──
+// If the input looks vaguely like a command (contains /, ., (, ), :, #, digits, or is 4+ chars)
+// generate a big impressive hacking dump instead of "unknown command"
+function looksLikeCommand(raw) {
+  if (raw.length < 3) return false;
+  return /[\/\.\(\):\[\]#@_0-9]/.test(raw) || raw.length >= 5;
+}
+
+function randHex(len) {
+  return [...Array(len)].map(() => Math.floor(Math.random()*16).toString(16)).join('');
+}
+function randIP() { return `${r(10,192)}.${r(0,255)}.${r(0,255)}.${r(1,254)}`; }
+function r(a,b) { return Math.floor(Math.random()*(b-a))+a; }
+function randPort() { return [22,80,443,1337,4431,8080,9001,9900][r(0,8)]; }
+function randMs() { return `${r(1,30)}ms`; }
+function randMB() { return `${r(4,128)}.${r(0,9)} MB`; }
+function randPID() { return String(r(100,9999)).padStart(4,'0'); }
+
+async function generateWildcardResponse(cmd) {
+  // Pull keywords out of the command to use in output
+  const tokens = cmd.replace(/[^a-z0-9]/gi,' ').split(/\s+/).filter(t => t.length > 1);
+  const label = tokens[0] || 'proc';
+  const target = tokens[1] || 'host';
+  const ip = randIP();
+  const pid = randPID();
+  const key = `${randHex(4)}-${randHex(4)}-${randHex(4)}-${randHex(4)}`;
+  const hash = randHex(32);
+  const hash2 = randHex(32);
+
+  const lines = [
+    [`[*] executing: ${cmd}`, 'sys'],
+    [`[+] resolving ${label} endpoint... ${ip}:${randPort()}`, 'ok'],
+    [`[+] binding process context: pid:${pid}  handle: ${label}.${target}`, 'ok'],
+    [`[*] initializing stealth handshake...`, 'sys'],
+    [`    >> SYN  ${ip}:${randPort()}  ->  local:${randPort()}   ${randMs()}`, 'ok'],
+    [`    >> ACK  ${ip}:${randPort()}  ->  local:${randPort()}   ${randMs()}`, 'ok'],
+    [`    >> session established`, 'ok'],
+    [`[*] enumerating target surface...`, 'sys'],
+    [`    >> open ports: ${randPort()}, ${randPort()}, ${randPort()}, ${randPort()}`, 'ok'],
+    [`    >> services: ${label}.svc, relay.net, shadow.bridge`, 'ok'],
+    [`    >> OS fingerprint: Linux ${r(4,6)}.${r(0,19)} x86_64`, 'ok'],
+    [`    >> TTL: ${r(54,128)}   hop count: ${r(2,8)}`, 'ok'],
+    [`[*] injecting payload into ${label} stream...`, 'sys'],
+    [`    >> segment 1/${r(4,8)}: 0x${randHex(8)}  PASS`, 'ok'],
+    [`    >> segment 2/${r(4,8)}: 0x${randHex(8)}  PASS`, 'ok'],
+    [`    >> segment 3/${r(4,8)}: 0x${randHex(8)}  PASS`, 'ok'],
+    [`    >> segment 4/${r(4,8)}: 0x${randHex(8)}  PASS`, 'ok'],
+    [`[+] payload delivered. ${randMB()} transferred`, 'ok'],
+    [`[*] intercepting ${target} broadcast on pid:${pid}...`, 'sys'],
+    [`    packet ${String(r(1,50)).padStart(3,'0')}/128  >>  ACK  0x${randHex(4)}  OK`, 'ok'],
+    [`    packet ${String(r(50,90)).padStart(3,'0')}/128  >>  ACK  0x${randHex(4)}  OK`, 'ok'],
+    [`    packet ${String(r(90,120)).padStart(3,'0')}/128  >>  ACK  0x${randHex(4)}  OK`, 'ok'],
+    [`    packet 128/128  >>  FIN  0x${randHex(4)}  OK`, 'ok'],
+    [`[+] 128/128 packets captured. 0 dropped.`, 'ok'],
+    [`[*] decrypting buffer...`, 'sys'],
+    [`    >> cipher: AES-256-GCM`, 'ok'],
+    [`    >> key candidate: ${key}  [match]`, 'warn'],
+    [`    >> integrity: PASSED`, 'ok'],
+    [`[*] extracting ${label} identity metadata...`, 'sys'],
+    [`    uid_hash    : 0x${randHex(16)}`, 'ok'],
+    [`    origin_ip   : ${ip}`, 'ok'],
+    [`    session_key : ${key}`, 'ok'],
+    [`    process_tag : ${label}.${target}`, 'warn'],
+    [`    status      : TRANSMITTING`, 'warn'],
+    [`[*] cross-referencing registry...`, 'sys'],
+    [`    >> sha256: ${hash}`, 'done'],
+    [`    >> sha256: ${hash2}`, 'done'],
+    [`    >> match confirmed at slot 0x${randHex(4)}`, 'warn'],
+    [`[+] ${label}//process.locked  pid:${pid}  [CAPTURED]`, 'bright'],
+  ];
+
+  for (const [text, cls] of lines) {
+    addLine(text, cls);
+    await new Promise(r => setTimeout(r, 22 + Math.random() * 20));
+  }
+}
+</script>
+</body>
+</html>
