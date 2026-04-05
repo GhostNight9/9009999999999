@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BREACH TERMINAL v4.7.1</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --red: #ff2222;
+  --red-dim: #881111;
+  --red-dark: #330000;
+  --red-bg: #0a0000;
+  --red-mid: #cc2222;
+  --green: #00ff44;
+  --amber: #ffaa00;
+  --bg: #000000;
+}
+html, body { width: 100%; height: 100%; background: #000; overflow: hidden; font-family: 'Share Tech Mono', 'Courier New', monospace; }
+
+#app { display: flex; width: 100vw; height: 100vh; background: #000; position: relative; }
+
+/* LEFT PANEL */
+#left-panel { width: 340px; flex-shrink: 0; display: flex; flex-direction: column; border-right: 1px solid var(--red-dark); background: #000; z-index: 10; }
+#left-header { padding: 8px 14px; background: var(--red-bg); border-bottom: 1px solid var(--red-dark); display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--red); letter-spacing: 2px; flex-shrink: 0; }
+.blink { animation: blink 1s step-end infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+#chat-messages { flex: 1; overflow-y: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; scrollbar-width: thin; scrollbar-color: #330000 #000; }
+#chat-messages::-webkit-scrollbar { width: 3px; }
+#chat-messages::-webkit-scrollbar-track { background: #000; }
+#chat-messages::-webkit-scrollbar-thumb { background: #440000; }
+
+.msg-user { align-self: flex-end; background: #140000; border: 0.5px solid #550000; border-right: 2px solid var(--red); color: #ff7777; font-size: 11.5px; padding: 7px 10px; max-width: 95%; line-height: 1.5; }
+.msg-ai { align-self: flex-start; background: #0a0000; border: 0.5px solid #330000; border-left: 2px solid var(--red); color: #cc2222; font-size: 11px; padding: 7px 10px; max-width: 98%; line-height: 1.6; }
+.msg-ai .ai-label { color: #ff4444; font-size: 10px; letter-spacing: 1.5px; margin-bottom: 4px; display: block; }
+.msg-sys { color: #441111; font-size: 10.5px; padding: 2px 0; }
+.msg-sys .ok { color: #00cc44; }
+.msg-sys .warn { color: #ffaa00; }
+.msg-sys .cmd { color: #ff4444; }
+.msg-sys .hi { color: #ff6666; }
+
+/* spam code in left panel */
+#left-spam { display: none; flex-direction: column; overflow: hidden; padding: 6px 12px; max-height: 160px; border-top: 1px solid #220000; background: #030000; flex-shrink: 0; }
+#left-spam.active { display: flex; }
+#left-spam-content { font-size: 10px; color: #660000; line-height: 1.5; overflow: hidden; }
+
+#input-area { border-top: 1px solid var(--red-dark); padding: 8px 10px; background: #050000; display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+.prompt-line { display: flex; align-items: flex-start; gap: 6px; }
+.prompt-sym { color: var(--red); font-size: 13px; padding-top: 6px; flex-shrink: 0; }
+#user-input { flex: 1; background: #0a0000; border: 0.5px solid #440000; color: #ff5555; font-family: 'Share Tech Mono', monospace; font-size: 11.5px; padding: 6px 8px; resize: none; outline: none; line-height: 1.5; min-height: 36px; max-height: 90px; }
+#user-input::placeholder { color: #331111; }
+#user-input:focus { border-color: #880000; }
+.btn-row { display: flex; gap: 6px; justify-content: space-between; align-items: center; }
+.hk-btn { background: #110000; border: 0.5px solid #550000; color: var(--red); font-family: 'Share Tech Mono', monospace; font-size: 10px; padding: 5px 10px; cursor: pointer; letter-spacing: 1px; transition: background 0.1s; }
+.hk-btn:hover { background: #220000; border-color: var(--red); }
+.hk-btn.exec { border-color: var(--red); color: #ff5555; font-size: 10.5px; }
+#cmd-bar { border-top: 1px solid #1a0000; padding: 5px 10px; background: #030000; font-size: 10px; color: #441111; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+#cmd-bar-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#view-cmds-btn { background: #0a0000; border: 0.5px solid #440000; color: #661111; font-family: 'Share Tech Mono', monospace; font-size: 9px; padding: 3px 7px; cursor: pointer; letter-spacing: 1px; flex-shrink: 0; margin-left: 6px; }
+#view-cmds-btn:hover { border-color: var(--red); color: var(--red); }
+
+/* RIGHT PANEL */
+#right-panel { flex: 1; display: flex; flex-direction: column; background: #000; position: relative; overflow: hidden; }
+#right-header { padding: 8px 14px; background: var(--red-bg); border-bottom: 1px solid var(--red-dark); display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--red); letter-spacing: 2px; flex-shrink: 0; z-index: 5; }
+.sdot { width: 7px; height: 7px; background: var(--green); border-radius: 50%; display: inline-block; animation: pulse 2s ease-in-out infinite; margin-right: 6px; }
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
+.hi { color: #ff0000; background: #1a0000; padding: 0 3px; }
+
+#term-output { flex: 1; overflow-y: auto; padding: 12px 16px; font-size: 11.5px; line-height: 1.65; scrollbar-width: thin; scrollbar-color: #330000 #000; }
+#term-output::-webkit-scrollbar { width: 4px; }
+#term-output::-webkit-scrollbar-track { background: #000; }
+#term-output::-webkit-scrollbar-thumb { background: #440000; }
+.tl { display: block; margin-bottom: 1px; }
+.td { color: #551111; }
+.tb { color: #ff4444; }
+.tm { color: #cc2222; }
+.tg { color: #00cc44; }
+.ta { color: #ffaa00; }
+.th { color: #ff0000; background: #1a0000; padding: 0 2px; }
+
+/* CODE TYPEWRITER */
+.code-line { display: block; color: #881111; opacity: 0; transform: translateX(-3px); transition: opacity 0.07s, transform 0.07s; font-size: 11px; white-space: pre; }
+.code-line.vis { opacity: 1; transform: translateX(0); }
+
+/* RAIN OVERLAY */
+#rain-overlay { position: absolute; inset: 0; z-index: 20; display: none; background: #000; }
+#rain-overlay.active { display: block; }
+#rain-canvas { width: 100%; height: 100%; display: block; }
+#rain-label { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); font-family: 'VT323', monospace; font-size: 28px; color: #ff1111; letter-spacing: 5px; text-align: center; pointer-events: none; text-shadow: 0 0 10px #ff0000; animation: flicker 0.2s step-end infinite; }
+@keyframes flicker { 0%{opacity:1}30%{opacity:0.8}60%{opacity:1}80%{opacity:0.9} }
+#rain-close { position: absolute; top: 12px; right: 14px; background: #1a0000; border: 0.5px solid #660000; color: var(--red); font-family: 'Share Tech Mono', monospace; font-size: 11px; padding: 4px 10px; cursor: pointer; z-index: 30; }
+#rain-close:hover { background: #330000; }
+
+/* BLACKOUT TRANSITION */
+#blackout { position: absolute; inset: 0; background: #000; z-index: 40; display: none; flex-direction: column; overflow: hidden; }
+#blackout.active { display: flex; }
+#blackout-code { flex: 1; overflow: hidden; padding: 14px 18px; font-size: 10.5px; color: #880000; line-height: 1.5; }
+#enc-prompt { padding: 10px 18px 14px; border-top: 1px solid #330000; font-size: 13px; color: #ff4444; letter-spacing: 1px; flex-shrink: 0; background: #050000; }
+#enc-prompt span { color: #ff7777; animation: blink 1s step-end infinite; }
+
+/* CLOUD NETWORK */
+#cloud-screen { position: absolute; inset: 0; background: #000; z-index: 50; display: none; flex-direction: column; overflow: hidden; }
+#cloud-screen.active { display: flex; }
+#cloud-header { padding: 10px 16px; background: #0a0000; border-bottom: 1px solid #330000; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+#cloud-header span { color: #ff4444; font-size: 12px; letter-spacing: 2px; }
+#cloud-close { background: #1a0000; border: 0.5px solid #660000; color: var(--red); font-family: 'Share Tech Mono', monospace; font-size: 10px; padding: 4px 10px; cursor: pointer; }
+#cloud-close:hover { background: #330000; }
+#cloud-body { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 20px 16px; gap: 16px; overflow-y: auto; }
+#cloud-visual { position: relative; width: 100%; max-width: 500px; height: 160px; flex-shrink: 0; }
+/* SVG cloud drawn via JS */
+#cloud-search-area { width: 100%; max-width: 500px; }
+#cloud-search-label { font-size: 11px; color: #661111; letter-spacing: 1px; margin-bottom: 6px; }
+.cloud-search-row { display: flex; gap: 8px; margin-bottom: 8px; }
+#cloud-search-input { flex: 1; background: #0a0000; border: 0.5px solid #440000; color: #ff5555; font-family: 'Share Tech Mono', monospace; font-size: 11.5px; padding: 7px 10px; outline: none; }
+#cloud-search-input:focus { border-color: #880000; }
+#cloud-search-btn { background: #110000; border: 0.5px solid #660000; color: var(--red); font-family: 'Share Tech Mono', monospace; font-size: 10.5px; padding: 7px 14px; cursor: pointer; letter-spacing: 1px; }
+#cloud-search-btn:hover { background: #220000; }
+#cloud-results { width: 100%; max-width: 500px; font-size: 11px; color: #cc2222; line-height: 1.8; min-height: 60px; }
+.cloud-result-row { border-bottom: 0.5px solid #1a0000; padding: 5px 4px; display: flex; gap: 12px; flex-wrap: wrap; }
+.cloud-result-row:hover { background: #0a0000; }
+.cf { color: #441111; font-size: 10px; margin-right: 4px; }
+
+/* COMMANDS MODAL */
+#cmds-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 200; display: none; align-items: center; justify-content: center; }
+#cmds-modal.active { display: flex; }
+#cmds-box { background: #050000; border: 1px solid #440000; padding: 16px 20px; min-width: 260px; max-width: 340px; width: 90%; }
+#cmds-box h3 { color: #ff4444; font-size: 12px; letter-spacing: 2px; margin-bottom: 12px; border-bottom: 0.5px solid #330000; padding-bottom: 8px; }
+#cmds-list-content { font-size: 11px; color: #cc2222; line-height: 2; }
+#cmds-modal-close { margin-top: 14px; display: block; width: 100%; background: #110000; border: 0.5px solid #660000; color: var(--red); font-family: 'Share Tech Mono', monospace; font-size: 10.5px; padding: 6px; cursor: pointer; letter-spacing: 1px; }
+#cmds-modal-close:hover { background: #220000; }
+
+/* PASSWORD BOX */
+#pass-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 300; display: none; align-items: center; justify-content: center; }
+#pass-modal.active { display: flex; }
+#pass-box { background: #050000; border: 1px solid #660000; padding: 20px 24px; min-width: 300px; }
+#pass-box h3 { color: #ff4444; font-size: 11px; letter-spacing: 2px; margin-bottom: 6px; }
+#pass-box p { color: #661111; font-size: 10.5px; margin-bottom: 14px; letter-spacing: 0.5px; }
+#pass-input { width: 100%; background: #0a0000; border: 0.5px solid #660000; color: #ff5555; font-family: 'Share Tech Mono', monospace; font-size: 14px; padding: 8px 10px; outline: none; letter-spacing: 3px; margin-bottom: 10px; }
+#pass-input:focus { border-color: var(--red); }
+#pass-error { color: #ff3333; font-size: 10px; margin-bottom: 8px; display: none; }
+.pass-btns { display: flex; gap: 8px; }
+#pass-submit { flex: 1; background: #1a0000; border: 0.5px solid var(--red); color: #ff5555; font-family: 'Share Tech Mono', monospace; font-size: 10.5px; padding: 7px; cursor: pointer; letter-spacing: 1px; }
+#pass-submit:hover { background: #280000; }
+#pass-cancel { background: #0a0000; border: 0.5px solid #440000; color: #661111; font-family: 'Share Tech Mono', monospace; font-size: 10.5px; padding: 7px 12px; cursor: pointer; }
+
+/* SCANLINES */
+#scanlines { position: fixed; inset: 0; pointer-events: none; z-index: 999; background: repeating-linear-gradient(to bottom, transparent 0px, transparent 2px, rgba(0,0,0,0.12) 2px, rgba(0,0,0,0.12) 4px); }
+</style>
+</head>
+<body>
+<div id="scanlines"></div>
+<div id="app">
+
+  <!-- LEFT -->
+  <div id="left-panel">
+    <div id="left-header">
+      <span>INPUT CONSOLE <span class="blink">█</span></span>
+      <span style="color:#661111">BREACH v4.7.1</span>
+    </div>
+    <div id="chat-messages">
+      <div class="msg-sys">[*] Neural uplink <span class="ok">ESTABLISHED</span></div>
+      <div class="msg-sys">[*] Type <span class="cmd">EstablishCommand: NAME</span> to register a trigger</div>
+      <div class="msg-ai"><span class="ai-label">// BREACH.AI</span>All systems nominal. Awaiting operator input.</div>
+    </div>
+    <div id="left-spam"><div id="left-spam-content"></div></div>
+    <div id="input-area">
+      <div class="prompt-line">
+        <span class="prompt-sym">>>></span>
+        <textarea id="user-input" rows="2" placeholder="enter command or query..."></textarea>
+      </div>
+      <div class="btn-row">
+        <button class="hk-btn" onclick="clearConsole()">CLEAR</button>
+        <button class="hk-btn" onclick="showCmdsModal()">CMDS</button>
+        <button class="hk-btn exec" onclick="handleSend()">EXECUTE ▶</button>
+      </div>
+    </div>
+    <div id="cmd-bar">
+      <span id="cmd-bar-text" style="color:#441111">no triggers registered</span>
+      <button id="view-cmds-btn" onclick="showCmdsModal()">VIEW ALL</button>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div id="right-panel">
+    <div id="right-header">
+      <span><span class="sdot"></span>TERMINAL OUTPUT</span>
+      <span style="color:#661111">192.168.0.12</span>
+      <span class="hi">SECURE</span>
+    </div>
+    <div id="term-output">
+      <span class="tl td">[*] initializing secure enclave............done</span>
+      <span class="tl td">[*] mapping target regions...............done</span>
+      <span class="tl td">[*] setting register state...............done</span>
+      <span class="tl td">[*] remapping bridge layer...............done</span>
+      <span class="tl td">[*] establishing tunnel..................done</span>
+      <span class="tl tb">  HOST_PROXY: ready</span>
+      <span class="tl tb">  BREACH_MODULE: ready</span>
+      <span class="tl td" style="margin-top:4px">[*] enumerating target surface...</span>
+      <span class="tl tm">  >> open ports: 80, 8080, 4431, 443</span>
+      <span class="tl tm">  >> services: idnonsn.svc, relay.net, shadow.bridge</span>
+      <span class="tl tm">  >> OS fingerprint: Linux 4.18 x86_64</span>
+      <span class="tl tm">  >> TTL: 119  hop count: 4</span>
+      <span class="tl td" style="margin-top:4px">[*] injecting payload into stream...</span>
+      <span class="tl tm">  >> segment 1/4: 0xd4d8847e  <span class="tg">PASS</span></span>
+      <span class="tl tm">  >> segment 2/4: 0xda051605  <span class="tg">PASS</span></span>
+      <span class="tl tm">  >> segment 3/4: 0xc152fe23  <span class="tg">PASS</span></span>
+      <span class="tl tm">  >> segment 4/4: 0xB6d22950  <span class="tg">PASS</span></span>
+      <span class="tl tb">[*] payload delivered. 89.1 MB transferred</span>
+      <span class="tl tb" style="margin-top:4px">EXFILTRATION COMPLETE. <span class="th">■ ACCESS CONFIRMED</span></span>
+      <div id="term-end"></div>
+    </div>
+
+    <!-- RAIN OVERLAY -->
+    <div id="rain-overlay">
+      <canvas id="rain-canvas"></canvas>
+      <div id="rain-label" id="rain-label">SEARCHING...</div>
+      <button id="rain-close" onclick="stopRain()">✕ ABORT</button>
+    </div>
+
+    <!-- BLACKOUT / CODE SPAM -->
+    <div id="blackout">
+      <div id="blackout-code"></div>
+      <div id="enc-prompt">EnterCodePasswordEncription: <span>▋</span></div>
+    </div>
+
+    <!-- CLOUD NETWORK -->
+    <div id="cloud-screen">
+      <div id="cloud-header">
+        <span><span class="sdot"></span>GLOBALNET CLOUD — NODE ACCESS GRANTED</span>
+        <button id="cloud-close" onclick="closeCloud()">✕ DISCONNECT</button>
+      </div>
+      <div id="cloud-body">
+        <svg id="cloud-svg" width="100%" height="160" viewBox="0 0 500 160" style="max-width:500px;flex-shrink:0"></svg>
+        <div id="cloud-search-area">
+          <div id="cloud-search-label">// SEARCH GLOBAL NETWORK DATABASE</div>
+          <div class="cloud-search-row">
+            <input id="cloud-search-input" type="text" placeholder="enter name or ID...">
+            <button id="cloud-search-btn" onclick="cloudSearch()">QUERY ▶</button>
+          </div>
+        </div>
+        <div id="cloud-results"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- COMMANDS MODAL -->
+<div id="cmds-modal">
+  <div id="cmds-box">
+    <h3>// REGISTERED TRIGGERS</h3>
+    <div id="cmds-list-content">no triggers registered</div>
+    <button id="cmds-modal-close" onclick="hideCmdsModal()">CLOSE</button>
+  </div>
+</div>
+
+<!-- PASSWORD MODAL -->
+<div id="pass-modal">
+  <div id="pass-box">
+    <h3>// ENCRYPTION KEY REQUIRED</h3>
+    <p>Enter the retrieved decryption key to unlock GLOBALNET access.</p>
+    <input id="pass-input" type="text" placeholder="000-000-000" maxlength="11">
+    <div id="pass-error">INVALID KEY — ACCESS DENIED</div>
+    <div class="pass-btns">
+      <button id="pass-submit" onclick="submitPassword()">UNLOCK ▶</button>
+      <button id="pass-cancel" onclick="hidePassModal()">ABORT</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────
+const customCommands = {};
+let rainAnimId = null;
+let currentPassword = '';
+let awaitingEncKey = false;
+let awaitingPassword = false;
+
+const messagesEl = document.getElementById('chat-messages');
+const termOutput = document.getElementById('term-output');
+const termEnd = document.getElementById('term-end');
+const inputEl = document.getElementById('user-input');
+const cmdBarText = document.getElementById('cmd-bar-text');
+const leftSpam = document.getElementById('left-spam');
+const leftSpamContent = document.getElementById('left-spam-content');
+const rainOverlay = document.getElementById('rain-overlay');
+const rainCanvas = document.getElementById('rain-canvas');
+const rainLabel = document.getElementById('rain-label');
+const blackout = document.getElementById('blackout');
+const blackoutCode = document.getElementById('blackout-code');
+const cloudScreen = document.getElementById('cloud-screen');
+const passModal = document.getElementById('pass-modal');
+const passInput = document.getElementById('pass-input');
+const passError = document.getElementById('pass-error');
+
+// ── Scroll helpers ──────────────────────────────────────────────────
+const scrollChat = () => messagesEl.scrollTop = messagesEl.scrollHeight;
+const scrollTerm = () => termOutput.scrollTop = termOutput.scrollHeight;
+
+// ── Add helpers ─────────────────────────────────────────────────────
+function addTermLine(html, cls='tm') {
+  const s = document.createElement('span');
+  s.className = `tl ${cls}`;
+  s.innerHTML = html;
+  termOutput.insertBefore(s, termEnd);
+  scrollTerm();
+}
+function addSys(html) {
+  const d = document.createElement('div');
+  d.className = 'msg-sys';
+  d.innerHTML = html;
+  messagesEl.appendChild(d);
+  scrollChat();
+}
+function addUser(text) {
+  const d = document.createElement('div');
+  d.className = 'msg-user';
+  d.textContent = text;
+  messagesEl.appendChild(d);
+  scrollChat();
+}
+function addAI(text) {
+  const d = document.createElement('div');
+  d.className = 'msg-ai';
+  d.innerHTML = `<span class="ai-label">// BREACH.AI</span>${text}`;
+  messagesEl.appendChild(d);
+  scrollChat();
+  return d;
+}
+function addThinking() {
+  const d = document.createElement('div');
+  d.className = 'msg-ai';
+  d.innerHTML = `<span class="ai-label">// BREACH.AI</span><span style="animation:blink 0.7s step-end infinite">processing▋</span>`;
+  messagesEl.appendChild(d);
+  scrollChat();
+  return d;
+}
+
+// ── Commands modal ──────────────────────────────────────────────────
+function showCmdsModal() {
+  const el = document.getElementById('cmds-list-content');
+  const names = Object.keys(customCommands);
+  if (!names.length) {
+    el.innerHTML = '<span style="color:#331111">none registered yet</span>';
+  } else {
+    el.innerHTML = names.map(n =>
+      `<div style="padding:2px 0;border-bottom:0.5px solid #1a0000">
+        <span style="color:#ff4444">▸ ${n}</span>
+        <span style="color:#441111;font-size:10px;float:right">TRIGGER</span>
+      </div>`
+    ).join('');
+  }
+  document.getElementById('cmds-modal').classList.add('active');
+}
+function hideCmdsModal() {
+  document.getElementById('cmds-modal').classList.remove('active');
+}
+
+// ── Update cmd bar ──────────────────────────────────────────────────
+function updateCmdBar() {
+  const names = Object.keys(customCommands);
+  if (!names.length) {
+    cmdBarText.innerHTML = '<span style="color:#441111">no triggers registered</span>';
+  } else {
+    cmdBarText.innerHTML = names.map(n => `<span style="color:#661111">${n}</span>`).join(' · ');
+  }
+}
+
+// ── Rain ─────────────────────────────────────────────────────────────
+function startRain(label, duration, onDone) {
+  rainLabel.textContent = label;
+  rainOverlay.classList.add('active');
+  const ctx = rainCanvas.getContext('2d');
+  function resize() { rainCanvas.width = rainOverlay.clientWidth; rainCanvas.height = rainOverlay.clientHeight; }
+  resize();
+  const cols = Math.floor(rainCanvas.width / 16);
+  const drops = Array(cols).fill(0);
+  function draw() {
+    ctx.fillStyle = 'rgba(0,0,0,0.07)';
+    ctx.fillRect(0, 0, rainCanvas.width, rainCanvas.height);
+    ctx.font = '14px "Share Tech Mono", monospace';
+    for (let i = 0; i < drops.length; i++) {
+      const ch = Math.random() > 0.5 ? (Math.random() > 0.5 ? '0' : '1') : String.fromCharCode(0x21 + Math.floor(Math.random() * 93));
+      ctx.fillStyle = Math.random() > 0.92 ? '#ff6666' : (Math.random() > 0.5 ? '#cc0000' : '#880000');
+      ctx.fillText(ch, i * 16, drops[i] * 16);
+      if (drops[i] * 16 > rainCanvas.height && Math.random() > 0.975) drops[i] = 0;
+      drops[i]++;
+    }
+    rainAnimId = requestAnimationFrame(draw);
+  }
+  draw();
+  if (duration) setTimeout(() => { stopRain(); if (onDone) onDone(); }, duration);
+}
+function stopRain() {
+  if (rainAnimId) cancelAnimationFrame(rainAnimId);
+  rainAnimId = null;
+  rainOverlay.classList.remove('active');
+}
+
+// ── Left panel spam ────────────────────────────────────────────────
+const SPAM_CHARS = '0123456789abcdefABCDEF!@#$%^&*(){}[]<>/\\|;:.,?~`+=_-';
+function spamLeft(duration, onDone) {
+  leftSpam.classList.add('active');
+  leftSpamContent.innerHTML = '';
+  let lines = [];
+  let ticks = 0;
+  const total = Math.floor(duration / 60);
+  const iv = setInterval(() => {
+    ticks++;
+    const line = Array.from({length: 48}, () => SPAM_CHARS[Math.floor(Math.random()*SPAM_CHARS.length)]).join('');
+    lines.push(line);
+    if (lines.length > 10) lines = lines.slice(-10);
+    leftSpamContent.textContent = lines.join('\n');
+    if (ticks >= total) {
+      clearInterval(iv);
+      leftSpam.classList.remove('active');
+      leftSpamContent.innerHTML = '';
+      if (onDone) onDone();
+    }
+  }, 60);
+}
+
+// ── Blackout sequence ──────────────────────────────────────────────
+function startBlackout() {
+  stopRain();
+  blackout.classList.add('active');
+  blackoutCode.innerHTML = '';
+  let lines = [];
+  let count = 0;
+  const spamLines = 80;
+  const iv = setInterval(() => {
+    count++;
+    const line = Array.from({length: 58}, () => SPAM_CHARS[Math.floor(Math.random()*SPAM_CHARS.length)]).join('');
+    const s = document.createElement('span');
+    s.style.cssText = 'display:block;font-size:10.5px;color:#770000;line-height:1.4;';
+    s.textContent = line;
+    blackoutCode.appendChild(s);
+    blackoutCode.scrollTop = blackoutCode.scrollHeight;
+    if (count >= spamLines) {
+      clearInterval(iv);
+      awaitingEncKey = true;
+    }
+  }, 60);
+}
+
+// ── Password spam + generation ─────────────────────────────────────
+function genPassword() {
+  const n = () => Math.floor(Math.random() * 10);
+  return `${n()}${n()}${n()}-${n()}${n()}${n()}-${n()}${n()}${n()}`;
+}
+function doEncKeySequence() {
+  awaitingEncKey = false;
+  // spam left panel with code, then show password
+  addSys('[<span class="warn">EXEC</span>] Initiating global network key retrieval...');
+  spamLeft(3500, () => {
+    currentPassword = genPassword();
+    addSys(`[<span class="ok">FOUND</span>] Encryption key extracted: <span class="hi" style="letter-spacing:2px">${currentPassword}</span>`);
+    addSys('[*] Enter key into message box to unlock access.');
+    awaitingPassword = true;
+  });
+}
+
+// ── Password modal ────────────────────────────────────────────────
+function showPassModal() {
+  passInput.value = '';
+  passError.style.display = 'none';
+  passModal.classList.add('active');
+  setTimeout(() => passInput.focus(), 100);
+}
+function hidePassModal() {
+  passModal.classList.remove('active');
+  awaitingPassword = false;
+}
+function submitPassword() {
+  const entered = passInput.value.trim();
+  if (entered === currentPassword) {
+    passModal.classList.remove('active');
+    awaitingPassword = false;
+    blackout.classList.remove('active');
+    unlockCloud();
+  } else {
+    passError.style.display = 'block';
+    passInput.value = '';
+    passInput.focus();
+    setTimeout(() => passError.style.display = 'none', 2000);
+  }
+}
+
+// ── Cloud SVG ────────────────────────────────────────────────────
+function drawCloud() {
+  const svg = document.getElementById('cloud-svg');
+  svg.innerHTML = `
+    <defs>
+      <filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>
+    <!-- cloud shape -->
+    <ellipse cx="250" cy="90" rx="140" ry="50" fill="#0a0000" stroke="#330000" stroke-width="0.5"/>
+    <ellipse cx="180" cy="75" rx="70" ry="42" fill="#0a0000" stroke="#330000" stroke-width="0.5"/>
+    <ellipse cx="320" cy="78" rx="65" ry="38" fill="#0a0000" stroke="#330000" stroke-width="0.5"/>
+    <ellipse cx="250" cy="70" rx="90" ry="45" fill="#0a0000" stroke="#330000" stroke-width="0.5"/>
+    <!-- nodes -->
+    <circle cx="200" cy="85" r="5" fill="#330000" stroke="#cc2222" stroke-width="0.8"/>
+    <circle cx="250" cy="72" r="5" fill="#330000" stroke="#cc2222" stroke-width="0.8"/>
+    <circle cx="300" cy="88" r="5" fill="#330000" stroke="#cc2222" stroke-width="0.8"/>
+    <circle cx="230" cy="100" r="4" fill="#330000" stroke="#881111" stroke-width="0.8"/>
+    <circle cx="275" cy="98" r="4" fill="#330000" stroke="#881111" stroke-width="0.8"/>
+    <!-- connector lines -->
+    <line x1="200" y1="85" x2="250" y2="72" stroke="#440000" stroke-width="0.5"/>
+    <line x1="250" y1="72" x2="300" y2="88" stroke="#440000" stroke-width="0.5"/>
+    <line x1="200" y1="85" x2="230" y2="100" stroke="#330000" stroke-width="0.5"/>
+    <line x1="300" y1="88" x2="275" y2="98" stroke="#330000" stroke-width="0.5"/>
+    <line x1="250" y1="72" x2="230" y2="100" stroke="#330000" stroke-width="0.5"/>
+    <!-- label -->
+    <text x="250" y="145" text-anchor="middle" fill="#441111" font-family="Share Tech Mono,monospace" font-size="10" letter-spacing="3">GLOBALNET // 8.4B NODES ACTIVE</text>
+  `;
+}
+
+// ── Fake cloud search ─────────────────────────────────────────────
+const FAKE_NAMES = ['John','Sarah','Michael','Emma','David','Olivia','James','Sophia','Robert','Ava','William','Isabella','Daniel','Mia','Chris','Charlotte','Matthew','Amelia','Andrew','Harper'];
+const FAKE_LAST = ['Smith','Johnson','Williams','Brown','Jones','Garcia','Miller','Davis','Martinez','Taylor','Anderson','Thomas','White','Harris','Lewis','Clark','Walker','Hall','Allen','Young'];
+const FAKE_CITIES = ['New York','Los Angeles','Chicago','Houston','Phoenix','Dallas','Seattle','Miami','Denver','Boston','Austin','Portland'];
+const FAKE_STATES = ['NY','CA','IL','TX','AZ','FL','WA','CO','MA','OR'];
+
+function randOf(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function randInt(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+function randID() {
+  return 'ID-' + Array.from({length:8}, () => '0123456789ABCDEF'[Math.floor(Math.random()*16)]).join('');
+}
+
+function cloudSearch() {
+  const query = document.getElementById('cloud-search-input').value.trim();
+  const resultsEl = document.getElementById('cloud-results');
+  if (!query) return;
+
+  resultsEl.innerHTML = `<span style="color:#441111;animation:blink 0.7s step-end infinite">querying network...</span>`;
+
+  setTimeout(() => {
+    const count = randInt(3, 7);
+    let html = `<div style="color:#551111;font-size:10px;margin-bottom:6px;letter-spacing:1px">[*] ${count} RECORDS RETRIEVED FOR: <span style="color:#ff4444">"${query}"</span></div>`;
+    for (let i = 0; i < count; i++) {
+      const fn = query.split(' ')[0];
+      const first = fn.length > 1 ? fn.charAt(0).toUpperCase() + fn.slice(1) : randOf(FAKE_NAMES);
+      const last = randOf(FAKE_LAST);
+      const age = randInt(18, 72);
+      const city = randOf(FAKE_CITIES);
+      const state = randOf(FAKE_STATES);
+      const id = randID();
+      html += `<div class="cloud-result-row">
+        <span><span class="cf">NAME</span>${first} ${last}</span>
+        <span><span class="cf">AGE</span>${age}</span>
+        <span><span class="cf">LOC</span>${city}, ${state}</span>
+        <span><span class="cf">ID</span>${id}</span>
+      </div>`;
+    }
+    resultsEl.innerHTML = html;
+  }, 1200);
+}
+
+function unlockCloud() {
+  addTermLine('[*] decryption key verified...', 'td');
+  addTermLine('[*] <span class="tg">ACCESS GRANTED</span> — mounting GLOBALNET volume...', 'td');
+  addTermLine('[<span class="tg">✓</span>] GLOBALNET node access confirmed. 8.4B records indexed.', 'tb');
+  addSys('[<span class="ok">UNLOCKED</span>] GLOBALNET access granted.');
+  setTimeout(() => {
+    cloudScreen.classList.add('active');
+    drawCloud();
+  }, 800);
+}
+function closeCloud() {
+  cloudScreen.classList.remove('active');
+}
+
+// ── EstablishCommand ───────────────────────────────────────────────
+function parseEstablish(text) {
+  const m = text.match(/^EstablishCommand:\s*(.+)$/i);
+  if (!m) return false;
+  const name = m[1].trim();
+  if (!name) return false;
+  customCommands[name] = true;
+  updateCmdBar();
+  addSys(`[<span class="ok">OK</span>] Command "<span class="cmd">${name}</span>" registered.`);
+  addSys(`CommandInput: Active///storesystem:gd.forcenet`);
+  addTermLine(`[*] trigger bound: <span class="tb">${name}</span>`, 'td');
+  addTermLine(`[*] storesystem:gd.forcenet — <span class="tg">READY</span>`, 'td');
+  return true;
+}
+
+// ── search.file pattern ────────────────────────────────────────────
+function parseSearchFile(text) {
+  const m = text.match(/^search\.file\/\/retrievedata;search-cloud\[(.+)\]$/i);
+  if (!m) return false;
+  const query = m[1].trim();
+  // spam left panel
+  addSys(`[<span class="warn">EXEC</span>] search.file initiated — target: <span class="cmd">${query}</span>`);
+  spamLeft(4000, null);
+  // rain on right with Searching...
+  addTermLine(`[*] routing query through relay net...`, 'td');
+  startRain('SEARCHING...', 20000, () => {
+    startBlackout();
+  });
+  return true;
+}
+
+// ── Enc key command ────────────────────────────────────────────────
+function parseEncKey(text) {
+  return /^Find;encryption\.key\.net\/\/searchglobalnetwork\.pass$/i.test(text);
+}
+
+// ── Main trigger (custom commands) ────────────────────────────────
+function checkCustomCmd(text) {
+  if (!customCommands[text]) return false;
+  addSys(`[<span class="warn">EXEC</span>] Trigger activated: <span class="cmd">${text}</span>`);
+  addSys(`CommandInput: Active///storesystem:gd.forcenet`);
+  addTermLine(`[*] <span class="tb">TRIGGER:</span> <span class="tg">${text}</span>`, 'tm');
+  return true;
+}
+
+// ── AI query ──────────────────────────────────────────────────────
+const CODE_SNIPPETS = [
+  ['import socket, struct, sys','def forge_packet(dst, port):','    s = socket.socket(socket.AF_INET, socket.SOCK_RAW)','    s.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)','    hdr = struct.pack("!BBHHHBBH4s4s", 0x45, 0, 60, 0xABCD, 0, 64, 6, 0,','        socket.inet_aton("10.0.0.1"), socket.inet_aton(dst))','    s.sendto(hdr, (dst, port))','forge_packet("192.168.0.12", 4431)'],
+  ['MODULE: kernel_exploit loaded','CVE-2023-32233 → netfilter UAF','heap spray: 0x7fff8a002000','rop chain assembled: 14 gadgets','pivot rsp → 0xffff888001a3c000','overwriting cred struct...','uid=0 gid=0  → <span class="tg">ROOT GRANTED</span>'],
+  ['nmap -sS -O -T4 10.0.0.0/24','Discovered: 22/tcp on 10.0.0.7','Discovered: 3306/tcp on 10.0.0.44','Running: hydra -l root -P rockyou.txt ssh://10.0.0.7','<span class="tg">[22][ssh] host: 10.0.0.7  login: root  pass: toor1234</span>'],
+  ['sqlmap -u "http://target/login.php"','parameter "id" — VULNERABLE','backend DBMS: MySQL 8.0','dumping table: users','| admin | 5f4dcc3b5aa765d61d8327deb882cf99 |','hash cracked: <span class="tg">password123</span>'],
+];
+function typeCode(lines) {
+  const block = document.createElement('div');
+  block.style.marginTop = '6px';
+  termOutput.insertBefore(block, termEnd);
+  let idx = 0;
+  function next() {
+    if (idx >= lines.length) return;
+    const s = document.createElement('span');
+    s.className = 'code-line';
+    s.innerHTML = lines[idx++];
+    block.appendChild(s);
+    requestAnimationFrame(() => { s.classList.add('vis'); scrollTerm(); });
+    if (idx < lines.length) setTimeout(next, 80 + Math.random() * 100);
+  }
+  setTimeout(next, 150);
+}
+
+async function doAIQuery(text) {
+  const isTech = /hack|exploit|scan|inject|payload|crack|brute|session|bypass|root|shell|port|sql|xss|overflow|kernel|nmap|metasploit|reverse|tunnel|encrypt|decrypt|zero.?day|CVE|bind|exfil|pivot|lateral|persist|breach|network|firewall|proxy|tor|vpn/i.test(text);
+  addTermLine(`<span class="td">[*] query: </span><span class="tb">"${text}"</span>`);
+  if (isTech) {
+    addTermLine('[*] loading module...', 'td');
+    typeCode(CODE_SNIPPETS[Math.floor(Math.random() * CODE_SNIPPETS.length)]);
+  }
+  const el = addThinking();
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: `You are BREACH.AI, a cold, technical AI embedded in a stealth operator terminal.
+Respond in terse, technical language. Max 3-4 short sentences.
+No markdown, no bullet points, no headers. Plain lines only.
+Never break character. Reference real technical concepts naturally.
+If asked about EstablishCommand, explain it registers a custom trigger.
+If asked about search.file//retrievedata;search-cloud[X], explain it initiates a relay data search.`,
+        messages: [{ role: 'user', content: text }]
+      })
+    });
+    const data = await res.json();
+    const reply = data.content?.find(b => b.type === 'text')?.text || '[NULL — SIGNAL LOST]';
+    el.innerHTML = `<span class="ai-label">// BREACH.AI</span>${reply}`;
+  } catch(e) {
+    el.innerHTML = `<span class="ai-label">// ERROR</span>[CONNECTION REFUSED]`;
+  }
+}
+
+// ── Main handler ──────────────────────────────────────────────────
+async function handleSend() {
+  const raw = inputEl.value.trim();
+  if (!raw) return;
+  inputEl.value = '';
+  addUser(raw);
+
+  // enc key command
+  if (parseEncKey(raw)) { doEncKeySequence(); return; }
+
+  // entered the retrieved password
+  if (awaitingPassword && raw === currentPassword) {
+    awaitingPassword = false;
+    showPassModal();
+    passInput.value = raw;
+    return;
+  }
+
+  // entering enc key prompt
+  if (awaitingEncKey) { doEncKeySequence(); return; }
+
+  // EstablishCommand
+  if (parseEstablish(raw)) return;
+
+  // search.file
+  if (parseSearchFile(raw)) return;
+
+  // custom trigger
+  if (checkCustomCmd(raw)) return;
+
+  // default: AI
+  await doAIQuery(raw);
+}
+
+// ── Clear ─────────────────────────────────────────────────────────
+function clearConsole() {
+  messagesEl.innerHTML = '';
+  addSys('[<span class="ok">OK</span>] Console cleared.');
+}
+
+// ── Keyboard ──────────────────────────────────────────────────────
+inputEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+});
+passInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitPassword();
+});
+
+// ── Close modals on backdrop click ────────────────────────────────
+document.getElementById('cmds-modal').addEventListener('click', e => { if (e.target.id === 'cmds-modal') hideCmdsModal(); });
+passModal.addEventListener('click', e => { if (e.target.id === 'pass-modal') hidePassModal(); });
+
+// init
+scrollTerm();
+</script>
+</body>
+</html>
